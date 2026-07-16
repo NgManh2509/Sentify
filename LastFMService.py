@@ -6,7 +6,6 @@ import logging
 
 load_dotenv()
 
-lastFMAPI = os.getenv("38c1265fb9b2382e3bbfe34593f293f5")
 logger = logging.getLogger(__name__)
 
 class LastFMService:
