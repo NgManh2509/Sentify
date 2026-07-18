@@ -14,8 +14,9 @@ class MusicService:
         self.lastfm = lastfm
         self.spotify = spotify
 
-    def getRecommendation(self, emotion: str, limit: int = 5) -> list:
-        candidateTrack = self.lastfm.getTrackByEmotion(emotion, limit = limit * 3 )
+    def getRecommendation(self, emotion: str, score: float = 0.5, limit: int = 5) -> list:
+        """Lấy gợi ý từ một emotion đơn lẻ (backward-compatible)."""
+        candidateTrack = self.lastfm.getTrackByEmotion(emotion, score=score, limit=limit * 3)
 
         if not candidateTrack:
             return []
@@ -25,7 +26,21 @@ class MusicService:
         for track in candidateTrack:
             if len(finalRec) >= limit:
                 break
+            spotifyTrack = self.spotify.searchTrackMetaData(track["name"], track["artist"])
+            if spotifyTrack:
+                finalRec.append(spotifyTrack)
+        return finalRec
 
+    def getRecommendationByEmotions(self, emotions: list, limit: int = 5) -> list:
+        candidateTrack = self.lastfm.getTrackByEmotions(emotions, limit=limit * 3)
+
+        if not candidateTrack:
+            return []
+
+        finalRec = []
+        for track in candidateTrack:
+            if len(finalRec) >= limit:
+                break
             spotifyTrack = self.spotify.searchTrackMetaData(track["name"], track["artist"])
             if spotifyTrack:
                 finalRec.append(spotifyTrack)

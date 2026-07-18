@@ -119,3 +119,145 @@ code {
 }
 
 ===== END DEFAULT CSS ===== */
+/* ===== ModelResponse ===== */
+.model-response {
+  background: transparent;
+  border-radius: 16px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.emotion-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 14px 14px 0 0;
+  flex-wrap: wrap;
+}
+
+.emotion-emoji {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.emotion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.emotion-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.emotion-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.score-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.score-pill {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.rec-section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  padding: 14px 16px;
+}
+
+.rec-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 12px;
+}
+
+.no-songs {
+  font-size: 13px;
+  color: #aaa;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.track-iframe-wrap {
+  flex: 1;
+  min-width: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dl-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.2s, transform 0.15s, color 0.2s;
+  backdrop-filter: blur(6px);
+}
+
+.dl-btn:hover {
+  background: rgba(242, 102, 57, 0.15) !important;
+  color: #f26639;
+  transform: scale(1.08);
+}
+
+.dl-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spin 0.8s linear infinite;
+}

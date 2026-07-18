@@ -15,26 +15,29 @@ class SpotifyService:
         ))
 
     def searchTrackMetaData(self, track_name: str, artist_name: str) -> dict:
-        query = f"track:{track_name} artist:{artist_name}"
+        queries = [
+            f"track:{track_name} artist:{artist_name}",
+            f"{track_name} {artist_name}",
+            f"track:{track_name}",
+        ]
         try:
-            res = self.sp.search(q=query, limit=1, type='track')
-            items = res.get("tracks", {}).get("items", [])
+            for query in queries:
+                res = self.sp.search(q=query, limit=1, type='track')
+                items = res.get("tracks", {}).get("items", [])
+                if items:
+                    track = items[0]
+                    artists_list = [artist["name"] for artist in track.get("artists", [])]
+                    images = track.get("album", {}).get("images", [])
+                    return {
+                        "id": track.get("id"),
+                        "name": track.get("name"),
+                        "artists": ", ".join(artists_list),
+                        "cover_image": images[0]["url"] if images else None,
+                        "spotify_url": track.get("external_urls", {}).get("spotify")
+                    }
 
-            if not items:
-                logger.warning(f"Không tìm thấy trên Spotify: '{track_name}' - '{artist_name}'")
-                return None
-
-            track = items[0]
-            artists_list = [artist["name"] for artist in track.get("artists", [])]
-            images = track.get("album", {}).get("images", [])
-
-            return {
-                "id": track.get("id"),
-                "name": track.get("name"),
-                "artists": ", ".join(artists_list),
-                "cover_image": images[0]["url"] if images else None,
-                "spotify_url": track.get("external_urls", {}).get("spotify")
-            }
+            logger.warning(f"Không tìm thấy trên Spotify: '{track_name}' - '{artist_name}'")
+            return None
         except Exception as e:
             logger.error(f"Lỗi tìm kiếm Spotify API: {e}")
             return None

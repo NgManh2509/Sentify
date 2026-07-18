@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
+import time
 from dotenv import load_dotenv
 
 from TranslateModel import translateToEng
@@ -10,6 +11,7 @@ from EmotionDetect import detect
 from LastFMService import LastFMService
 from SpotifyService import SpotifyService
 from MusicService import MusicService
+from YoutubeService import router as youtube_router
 
 load_dotenv()
 app = FastAPI()
@@ -20,8 +22,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(youtube_router)
 
 musicSV = None
+
+# ─── Session history store ────────────────────────────────────────────────────
+# { session_id: {"seen": set("name|artist"), "last_active": float(timestamp)} }
+_session_store: dict = {}
+_SESSION_TTL = 3600  # giây – session hết hạn sau 1 giờ không hoạt động
+
+def _get_session_seen(session_id: str) -> set:
+    """Trả về set các bài đã đề xuất cho session này."""
+    now = time.time()
+    # Dọn session hết hạn
+    expired = [sid for sid, data in _session_store.items() if now - data["last_active"] > _SESSION_TTL]
+    for sid in expired:
+        del _session_store[sid]
+
+    if session_id not in _session_store:
+        _session_store[session_id] = {"seen": set(), "last_active": now}
+    else:
+        _session_store[session_id]["last_active"] = now
+    return _session_store[session_id]["seen"]
+
+def _update_session_seen(session_id: str, tracks: list):
+    """Thêm các bài vừa đề xuất vào history của session."""
+    seen = _get_session_seen(session_id)
+    for t in tracks:
+        key = f"{t.get('name','').lower()}|{t.get('artists','').lower()}"
+        seen.add(key)
 try:
     lastFM = LastFMService(apiKey=os.getenv("LASTFM_API_KEY"))
     spotify = SpotifyService(
@@ -34,6 +63,7 @@ except Exception as e:
 
 class TextInput(BaseModel):
     text: str
+    session_id: str | None = None
 
 @app.post("/api/analyze")
 async def analyze_and_recommend(input_text: TextInput):
@@ -45,9 +75,37 @@ async def analyze_and_recommend(input_text: TextInput):
         translatedText = translateToEng(input_text.text)
         emotionRes = detect(translatedText)
         labels = emotionRes.get("labels", [])
-        mainEmotion = labels[0] if labels else "neutral"
+        scores = emotionRes.get("scores", [])
 
-        songs = musicSV.getRecommendation(mainEmotion, limit=5)
+        # Lấy top-3 emotion theo score giảm dần
+        top_emotions = sorted(
+            [{"label": l, "score": s} for l, s in zip(labels, scores)],
+            key=lambda x: -x["score"]
+        )[:3]
+
+        mainEmotion = top_emotions[0]["label"] if top_emotions else "neutral"
+
+        # ── Lấy gợi ý và lọc bài đã nghe trong session ──
+        session_id = input_text.session_id
+        already_seen: set = _get_session_seen(session_id) if session_id else set()
+
+        # Lấy dư bài để có nhiều lựa chọn sau khi lọc
+        candidates = musicSV.getRecommendationByEmotions(top_emotions, limit=15)
+        songs = []
+        seen_names: set = set()  # loại trùng tên trong cùng 1 response
+        for t in candidates:
+            name_key = t.get('name', '').lower()
+            session_key = f"{name_key}|{t.get('artists','').lower()}"
+            if session_key not in already_seen and name_key not in seen_names:
+                songs.append(t)
+                seen_names.add(name_key)
+            if len(songs) >= 5:
+                break
+
+        # Cập nhật history session
+        if session_id:
+            _update_session_seen(session_id, songs)
+
         return {
             "status": "success",
             "original_text": input_text.text,

@@ -15,10 +15,12 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex h-screen overflow-hidden bg-white">
       <SideBar activePage={activePage} onNavigate={setActivePage} />
-      <main className="flex-1 flex justify-center items-center p-6">
-        {renderPage()}
+      <main className="flex-1 overflow-y-auto">
+        <div className="min-h-full flex flex-col justify-center items-center p-6">
+          {renderPage()}
+        </div>
       </main>
     </div>
   )
