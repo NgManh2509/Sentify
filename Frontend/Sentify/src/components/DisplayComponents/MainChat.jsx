@@ -8,6 +8,7 @@ export default function MainChat() {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
     const messagesEndRef = useRef(null);
 
     const hasSent = messages.length > 0;
@@ -50,6 +51,7 @@ export default function MainChat() {
             className={`
                 flex flex-col bg-white text-[#333] overflow-hidden
                 transition-all duration-300
+                ${isFocused || isLoading ? 'animate-aura-active' : 'animate-aura-pulse'}
                 ${hasSent
                     ? "w-full max-w-[65rem] mx-4 rounded-2xl shadow-[0_0.5rem_2rem_rgba(0,0,0,0.05)] h-[85vh]"
                     : "w-full max-w-[65rem] mx-4 rounded-2xl shadow-[0_0.5rem_2rem_rgba(0,0,0,0.05)]"
@@ -120,6 +122,8 @@ export default function MainChat() {
                         onKeyDown={handleKeyDown}
                         placeholder="Tell me how you feel..."
                         disabled={isLoading}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
                         className="flex-1 border-none outline-none text-sm p-2 bg-transparent text-[#333] placeholder:text-gray-400 disabled:opacity-60"
                     />
                     <button

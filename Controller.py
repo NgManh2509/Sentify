@@ -85,14 +85,11 @@ async def analyze_and_recommend(input_text: TextInput):
 
         mainEmotion = top_emotions[0]["label"] if top_emotions else "neutral"
 
-        # ── Lấy gợi ý và lọc bài đã nghe trong session ──
         session_id = input_text.session_id
         already_seen: set = _get_session_seen(session_id) if session_id else set()
-
-        # Lấy dư bài để có nhiều lựa chọn sau khi lọc
         candidates = musicSV.getRecommendationByEmotions(top_emotions, limit=15)
         songs = []
-        seen_names: set = set()  # loại trùng tên trong cùng 1 response
+        seen_names: set = set() 
         for t in candidates:
             name_key = t.get('name', '').lower()
             session_key = f"{name_key}|{t.get('artists','').lower()}"

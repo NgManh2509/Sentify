@@ -1,8 +1,8 @@
-
 import requests
 import os
 from dotenv import load_dotenv
 import logging
+import random
 
 load_dotenv()
 
@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 class LastFMService:
     rootUrl = "http://ws.audioscrobbler.com/2.0"
+    
+    # ĐÃ XÓA: random_Page khai báo ở đây là sai kiến trúc
 
     emotionMap = {
         "admiration": {
@@ -160,7 +162,6 @@ class LastFMService:
         self.apiKey = apiKey
 
     def _getTagByScore(self, emotion: str, score: float) -> str:
-        import random
         tiers = self.emotionMap.get(emotion.lower())
         if not tiers:
             return "pop"
@@ -173,12 +174,15 @@ class LastFMService:
         return random.choice(tiers[tier])
 
     def _fetchByTag(self, tag: str, limit: int = 5) -> list:
+        random_page = random.randint(1, 5)
+        
         params = {
             "method": "tag.gettoptracks",
             "tag": tag,
             "api_key": self.apiKey,
-            "limit": limit,
-            "format": "json"
+            "limit": 50,
+            "format": "json",
+            "page": random_page
         }
         try:
             response = requests.get(self.rootUrl, params=params, timeout=10)
@@ -187,7 +191,16 @@ class LastFMService:
                 return []
             data = response.json()
             tracks = data.get("tracks", {}).get("track", [])
-            return [{"name": t.get("name"), "artist": t.get("artist", {}).get("name")} for t in tracks]
+            
+            formatted_tracks = [
+                {"name": t.get("name"), "artist": t.get("artist", {}).get("name")} 
+                for t in tracks 
+                if t.get("name") and t.get("artist", {}).get("name")
+            ]
+            
+            random.shuffle(formatted_tracks)
+            
+            return formatted_tracks[:limit]
         except Exception as e:
             logger.error(f"Lỗi kết nối Last.fm API (tag={tag}): {e}")
             return []
@@ -198,7 +211,6 @@ class LastFMService:
         return self._fetchByTag(tag, limit=limit)
 
     def _getTagsByScore(self, emotion: str, score: float) -> list:
-        """Trả về tất cả các tags trong tier tương ứng với score."""
         tiers = self.emotionMap.get(emotion.lower())
         if not tiers:
             return ["pop"]
@@ -208,59 +220,61 @@ class LastFMService:
             tier = "medium"
         else:
             tier = "low"
-        return list(tiers[tier])
+        return [random.choice(tiers[tier])]
 
     def getTrackByEmotions(self, emotions: list, limit: int = 5) -> list:
-        import random
-
         if not emotions:
             return self._fetchByTag("pop", limit=limit)
+        total_score = sum(e["score"] for e in emotions)
+        if total_score == 0:
+            n = len(emotions)
+            quotas = [limit // n + (1 if i < limit % n else 0) for i in range(n)]
+        else:
+            raw = [e["score"] / total_score * limit for e in emotions]
+            floors = [int(q) for q in raw]
+            remainder_slots = limit - sum(floors)
+            remainders = sorted(
+                enumerate(raw[i] - floors[i] for i in range(len(raw))),
+                key=lambda x: -x[1]
+            )
+            for idx, _ in remainders[:remainder_slots]:
+                floors[idx] += 1
+            quotas = floors
+
+        logger.info(f"Quota phân bổ: { {e['label']: q for e, q in zip(emotions, quotas)} }")
 
         results = []
         seen = set()
-        all_tags = []  # pool để random fill nếu chưa đủ limit
 
-        # Bước 1: Với mỗi emotion, duyệt qua tất cả tags trong tier → mỗi tag lấy 1 bài
-        for e in emotions:
+        for e, quota in zip(emotions, quotas):
+            if quota == 0:
+                continue
             label = e["label"]
             score = e["score"]
-            tags = self._getTagsByScore(label, score)
-            all_tags.extend(tags)
-
-            for tag in tags:
-                logger.info(f"Emotion '{label}' (score={score:.2f}) → tag '{tag}' → lấy 1 bài")
-                fetched = self._fetchByTag(tag, limit=3)  
-                for track in fetched:
-                    key = (track.get("name", "").lower(), track.get("artist", "").lower())
-                    if key not in seen:
-                        seen.add(key)
-                        results.append(track)
-                        break  # mỗi tag chỉ lấy 1 bài
-
-        # Bước 2: Nếu chưa đủ limit → tiếp tục random từ pool all_tags
-        random.shuffle(all_tags)
-        tag_pool = list(all_tags)  # copy để vòng lặp
-        pool_index = 0
-
-        while len(results) < limit and tag_pool:
-            tag = tag_pool[pool_index % len(tag_pool)]
-            pool_index += 1
-
-            fetched = self._fetchByTag(tag, limit=5)
-            added = False
+            tag = self._getTagsByScore(label, score)[0]
+            logger.info(f"  '{label}' (score={score:.2f}) → tag '{tag}' → cần {quota} bài")
+            fetched = self._fetchByTag(tag, limit=quota + 5)  # fetch thêm để lọc trùng
+            added = 0
             for track in fetched:
+                if added >= quota:
+                    break
                 key = (track.get("name", "").lower(), track.get("artist", "").lower())
                 if key not in seen:
                     seen.add(key)
                     results.append(track)
-                    added = True
-                    break
+                    added += 1
 
-            # Nếu đã đi hết một vòng tag_pool mà không thêm được bài → dừng để tránh vòng vô hạn
-            if pool_index >= len(tag_pool) and not added:
-                break
+        if len(results) < limit and emotions:
+            top = emotions[0]
+            tag = self._getTagsByScore(top["label"], top["score"])[0]
+            extra = self._fetchByTag(tag, limit=limit * 3)
+            for track in extra:
+                if len(results) >= limit:
+                    break
+                key = (track.get("name", "").lower(), track.get("artist", "").lower())
+                if key not in seen:
+                    seen.add(key)
+                    results.append(track)
 
         random.shuffle(results)
         return results[:limit]
-
-
